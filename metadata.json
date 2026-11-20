@@ -1,0 +1,6 @@
+{
+  "name": "INDIWABOLA Games Hub",
+  "description": "Play, compete, and conquer across 14 football games, the Daily BOLA Challenge, and 3 casual multiplayer arena titles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-baller-lime: #B6FF00;
+  --color-pitch-black: #0A0A0A;
+  --color-pitch-surface: #1C1C1C;
+  --color-chalk-white: #FFFFFF;
+  --color-fog-grey: #F2F2F2;
+}
+
+@layer base {
+  html {
+    background-color: #0A0A0A;
+    color: #FFFFFF;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: #0A0A0A;
+    color: #FFFFFF;
+    overflow-x: hidden;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href] {
+    cursor: pointer;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes tile-pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes token-drop {
+  0% {
+    transform: translateY(-24px);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes die-tumble {
+  0% {
+    transform: rotate(-18deg) scale(0.86);
+  }
+  50% {
+    transform: rotate(12deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+.animate-tile-pop {
+  animation: tile-pop 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-token-drop {
+  animation: token-drop 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-die-tumble {
+  animation: die-tumble 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tile-pop,
+  .animate-token-drop,
+  .animate-die-tumble {
+    animation: none;
+  }
+}
+

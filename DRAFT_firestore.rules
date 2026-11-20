@@ -1,0 +1,176 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1: Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidCountry(country) {
+      return country in ['zambia', 'all', 'egypt', 'england', 'spain', 'germany'];
+    }
+
+    function isValidGameId(gameId) {
+      return gameId in [
+        'who-am-i', 'bola-trivia', 'predict-score', 'bola-word', 'mini-crossword',
+        'bola-connections', 'bola-strands', 'bola-sudoku', 'bola-tiles', 'match-replay',
+        'bola-draft', 'memory-grid', 'bola-letters', 'bola-letter-box',
+        'bola-ludo', 'road-to-glory', 'four-goals'
+      ];
+    }
+
+    // Pillar 2: Validation Blueprint for PlayerPublic (no PII)
+    function isValidPlayerPublic(data) {
+      return data.keys().hasAll([
+        'uid', 'username', 'favoriteClub', 'country', 'juniorMode',
+        'streak', 'bestStreak', 'totalPoints', 'skillPoints',
+        'multiplayerPoints', 'gamesPlayed', 'wins', 'isPublic', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'uid', 'username', 'favoriteClub', 'country', 'juniorMode',
+        'streak', 'bestStreak', 'totalPoints', 'skillPoints',
+        'multiplayerPoints', 'gamesPlayed', 'wins', 'isPublic', 'createdAt', 'updatedAt'
+      ])
+      && data.uid is string && data.uid.size() >= 6 && data.uid.size() <= 128
+      && data.uid == request.auth.uid
+      && data.username is string && data.username.size() >= 3 && data.username.size() <= 24
+      && data.username.matches('^[a-zA-Z0-9_\\-]+$')
+      && data.favoriteClub is string && data.favoriteClub.size() >= 2 && data.favoriteClub.size() <= 40
+      && data.country is string && isValidCountry(data.country)
+      && data.juniorMode is bool
+      && data.streak is int && data.streak >= 0 && data.streak <= 10000
+      && data.bestStreak is int && data.bestStreak >= 0 && data.bestStreak <= 10000
+      && data.totalPoints is int && data.totalPoints >= 0 && data.totalPoints <= 10000000
+      && data.skillPoints is int && data.skillPoints >= 0 && data.skillPoints <= 10000000
+      && data.multiplayerPoints is int && data.multiplayerPoints >= 0 && data.multiplayerPoints <= 10000000
+      && data.gamesPlayed is int && data.gamesPlayed >= 0 && data.gamesPlayed <= 100000
+      && data.wins is int && data.wins >= 0 && data.wins <= 100000
+      && data.isPublic is bool
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    // Pillar 2 & 6: Validation Blueprint for PlayerPrivate (PII-isolated)
+    function isValidPlayerPrivate(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt', 'updatedAt'])
+      && data.keys().hasOnly(['uid', 'email', 'createdAt', 'updatedAt'])
+      && data.uid is string && data.uid.size() >= 6 && data.uid.size() <= 128
+      && data.uid == request.auth.uid
+      && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    // Pillar 2: Validation Blueprint for ScoreEntry (immutable)
+    function isValidScoreEntry(data) {
+      return data.keys().hasAll([
+        'uid', 'username', 'favoriteClub', 'gameId', 'category',
+        'skillClass', 'region', 'score', 'isDaily', 'lusakaDate', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'uid', 'username', 'favoriteClub', 'gameId', 'category',
+        'skillClass', 'region', 'score', 'accuracy', 'attempts',
+        'isDaily', 'lusakaDate', 'createdAt'
+      ])
+      && data.uid is string && data.uid.size() >= 6 && data.uid.size() <= 128
+      && data.uid == request.auth.uid
+      && data.username is string && data.username.size() >= 3 && data.username.size() <= 24
+      && data.username.matches('^[a-zA-Z0-9_\\-]+$')
+      && data.favoriteClub is string && data.favoriteClub.size() >= 2 && data.favoriteClub.size() <= 40
+      && data.gameId is string && isValidGameId(data.gameId)
+      && data.category is string && (data.category == 'football' || data.category == 'multiplayer')
+      && data.skillClass is string && (data.skillClass == 'skill' || data.skillClass == 'mixed')
+      && data.region is string && isValidCountry(data.region)
+      && data.score is int && data.score >= 0 && data.score <= 2250
+      && (!('accuracy' in data) || (data.accuracy is int && data.accuracy >= 0 && data.accuracy <= 100))
+      && (!('attempts' in data) || (data.attempts is int && data.attempts >= 1 && data.attempts <= 500))
+      && data.isDaily is bool
+      && data.lusakaDate is string && data.lusakaDate.size() == 10
+      && data.lusakaDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+      && data.createdAt is timestamp;
+    }
+
+    // Public Leaderboard Profiles (No PII)
+    match /players/{playerId} {
+      allow get: if isValidId(playerId) && (isOwner(playerId) || (resource != null && existing().isPublic == true));
+      allow list: if existing().isPublic == true;
+      allow create: if isValidId(playerId)
+        && isOwner(playerId)
+        && isValidPlayerPublic(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(playerId)
+        && isOwner(playerId)
+        && isValidPlayerPublic(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'username', 'favoriteClub', 'country', 'juniorMode', 'isPublic', 'updatedAt'
+          ])
+          || incoming().diff(existing()).affectedKeys().hasOnly([
+            'streak', 'bestStreak', 'totalPoints', 'skillPoints',
+            'multiplayerPoints', 'gamesPlayed', 'wins', 'updatedAt'
+          ])
+        );
+      allow delete: if false;
+
+      // Pillar 6: Owner-isolated PII subcollection
+      match /private/{docId} {
+        allow get: if isValidId(playerId) && isValidId(docId) && isOwner(playerId);
+        allow list: if isValidId(playerId) && isOwner(playerId) && existing().uid == request.auth.uid;
+        allow create: if isValidId(playerId) && isValidId(docId)
+          && isOwner(playerId)
+          && isValidPlayerPrivate(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(playerId) && isValidId(docId)
+          && isOwner(playerId)
+          && isValidPlayerPrivate(incoming())
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+        allow delete: if false;
+      }
+
+      // Pillar 1 & 7: Owner Score History anchored to parent PlayerPublic document
+      match /scores/{scoreId} {
+        allow get: if isValidId(playerId) && isValidId(scoreId) && isOwner(playerId);
+        allow list: if isValidId(playerId) && isOwner(playerId) && existing().uid == request.auth.uid;
+        allow create: if isValidId(playerId) && isValidId(scoreId)
+          && isOwner(playerId)
+          && exists(/databases/$(database)/documents/players/$(playerId))
+          && isValidScoreEntry(incoming())
+          && incoming().createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+  }
+}
